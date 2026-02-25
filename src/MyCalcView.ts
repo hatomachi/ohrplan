@@ -123,14 +123,26 @@ export class HRPlanView extends TextFileView {
         container.empty();
 
         if (this.activeTab === 'source') {
-            const pre = container.createEl('pre');
-            pre.style.userSelect = "text";
-            pre.style.padding = "16px";
-            pre.style.background = "var(--background-secondary)";
-            pre.style.borderRadius = "8px";
-            pre.style.whiteSpace = "pre-wrap";
-            pre.style.fontFamily = "var(--font-monospace)";
-            pre.createEl('code', { text: this.data });
+            const textarea = container.createEl('textarea');
+            textarea.value = this.data;
+            textarea.style.width = "100%";
+            textarea.style.height = "100%";
+            textarea.style.minHeight = "400px";
+            textarea.style.padding = "16px";
+            textarea.style.background = "var(--background-secondary)";
+            textarea.style.color = "var(--text-normal)";
+            textarea.style.border = "1px solid var(--background-modifier-border)";
+            textarea.style.borderRadius = "8px";
+            textarea.style.fontFamily = "var(--font-monospace)";
+            textarea.style.resize = "vertical";
+
+            textarea.onblur = (e) => {
+                const newData = (e.target as HTMLTextAreaElement).value;
+                if (newData !== this.data) {
+                    this.data = newData;
+                    this.requestSave();
+                }
+            };
             return;
         }
 
@@ -182,17 +194,45 @@ export class HRPlanView extends TextFileView {
         monthsDiv.style.marginBottom = "20px";
 
         // テーマ一覧
-        container.createEl('h3', { text: 'テーマ一覧' });
+        const themeHeaderDiv = container.createDiv();
+        themeHeaderDiv.style.display = "flex";
+        themeHeaderDiv.style.justifyContent = "space-between";
+        themeHeaderDiv.style.alignItems = "center";
+        themeHeaderDiv.createEl('h3', { text: 'テーマ一覧' });
+        const addThemeBtn = themeHeaderDiv.createEl('button', { text: '+ テーマ追加' });
+        addThemeBtn.onclick = () => {
+            fm.themes.push({ name: "新規テーマ", description: "" });
+            this.saveData(fm, parsed.data, parsed.meta);
+            this.renderUI();
+        };
+
         const themeTable = container.createEl('table');
         themeTable.style.width = "100%"; themeTable.style.marginBottom = "20px";
         const tHead = themeTable.createEl('thead').createEl('tr');
         tHead.createEl('th', { text: '名前' });
         tHead.createEl('th', { text: '説明' });
+        tHead.createEl('th', { text: '操作', attr: { width: "60px" } });
 
         const tBody = themeTable.createEl('tbody');
-        fm.themes.forEach(t => {
+        fm.themes.forEach((t, i) => {
             const tr = tBody.createEl('tr');
-            tr.createEl('td', { text: t.name }).style.border = "1px solid var(--background-modifier-border)";
+            const nameTd = tr.createEl('td', { text: t.name });
+            nameTd.style.border = "1px solid var(--background-modifier-border)";
+            nameTd.setAttribute('contenteditable', 'true');
+            nameTd.onblur = (e) => {
+                const newName = (e.target as HTMLElement).innerText.trim();
+                if (newName && newName !== t.name) {
+                    // 既存データ(CSV)の名前も更新する
+                    parsed.data.forEach((row: any) => {
+                        if (row["Theme"] === t.name) {
+                            row["Theme"] = newName;
+                        }
+                    });
+                    t.name = newName;
+                    this.saveData(fm, parsed.data, parsed.meta);
+                }
+            };
+
             const descTd = tr.createEl('td', { text: t.description || "" });
             descTd.style.border = "1px solid var(--background-modifier-border)";
             descTd.setAttribute('contenteditable', 'true');
@@ -200,21 +240,60 @@ export class HRPlanView extends TextFileView {
                 t.description = (e.target as HTMLElement).innerText.trim();
                 this.saveData(fm, parsed.data, parsed.meta);
             };
+
+            const actionTd = tr.createEl('td');
+            actionTd.style.border = "1px solid var(--background-modifier-border)";
+            actionTd.style.textAlign = "center";
+            const delBtn = actionTd.createEl('button', { text: '削除' });
+            delBtn.onclick = () => {
+                fm.themes.splice(i, 1);
+                // CSV上のデータは保持する（あるいは削除するかは要件次第だが、とりあえずマスタから消すだけ）
+                this.saveData(fm, parsed.data, parsed.meta);
+                this.renderUI();
+            };
         });
 
         // メンバー一覧
-        container.createEl('h3', { text: 'メンバー一覧' });
+        const memHeaderDiv = container.createDiv();
+        memHeaderDiv.style.display = "flex";
+        memHeaderDiv.style.justifyContent = "space-between";
+        memHeaderDiv.style.alignItems = "center";
+        memHeaderDiv.createEl('h3', { text: 'メンバー一覧' });
+        const addMemBtn = memHeaderDiv.createEl('button', { text: '+ メンバー追加' });
+        addMemBtn.onclick = () => {
+            fm.members.push({ name: "新規メンバー", description: "", price: 0 });
+            this.saveData(fm, parsed.data, parsed.meta);
+            this.renderUI();
+        };
+
         const memTable = container.createEl('table');
         memTable.style.width = "100%"; memTable.style.marginBottom = "20px";
         const mHead = memTable.createEl('thead').createEl('tr');
         mHead.createEl('th', { text: '名前' });
         mHead.createEl('th', { text: '説明' });
         mHead.createEl('th', { text: '単価(千円/MM)' });
+        mHead.createEl('th', { text: '操作', attr: { width: "60px" } });
 
         const mBody = memTable.createEl('tbody');
-        fm.members.forEach(m => {
+        fm.members.forEach((m, i) => {
             const tr = mBody.createEl('tr');
-            tr.createEl('td', { text: m.name }).style.border = "1px solid var(--background-modifier-border)";
+
+            const nameTd = tr.createEl('td', { text: m.name });
+            nameTd.style.border = "1px solid var(--background-modifier-border)";
+            nameTd.setAttribute('contenteditable', 'true');
+            nameTd.onblur = (e) => {
+                const newName = (e.target as HTMLElement).innerText.trim();
+                if (newName && newName !== m.name) {
+                    // 既存データ(CSV)の名前も更新する
+                    parsed.data.forEach((row: any) => {
+                        if (row["Member"] === m.name) {
+                            row["Member"] = newName;
+                        }
+                    });
+                    m.name = newName;
+                    this.saveData(fm, parsed.data, parsed.meta);
+                }
+            };
 
             const descTd = tr.createEl('td', { text: m.description || "" });
             descTd.style.border = "1px solid var(--background-modifier-border)";
@@ -233,10 +312,17 @@ export class HRPlanView extends TextFileView {
                 m.price = parseFloat((e.target as HTMLElement).innerText.trim()) || 0;
                 this.saveData(fm, parsed.data, parsed.meta);
             };
-        });
 
-        // ※ 今は簡易のためマスタ追加はJSON直編集、あるいはここで追加ボタンを作るか
-        container.createEl('p', { text: '※名前の追加・変更はソース(YAML)から行ってください(現時点でのプロト仕様)' }).style.color = "var(--text-muted)";
+            const actionTd = tr.createEl('td');
+            actionTd.style.border = "1px solid var(--background-modifier-border)";
+            actionTd.style.textAlign = "center";
+            const delBtn = actionTd.createEl('button', { text: '削除' });
+            delBtn.onclick = () => {
+                fm.members.splice(i, 1);
+                this.saveData(fm, parsed.data, parsed.meta);
+                this.renderUI();
+            };
+        });
     }
 
     renderPivotTable(container: HTMLElement, parsed: any, primaryKey: 'member' | 'theme', secondaryKey: 'member' | 'theme') {
