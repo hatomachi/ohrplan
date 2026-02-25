@@ -13,7 +13,8 @@ type HRPlanFrontmatter = {
     months: string[];
     themes: { name: string, description: string }[];
     members: { name: string, description: string, price: number }[];
-    totals: any;
+    memberTotals?: Record<string, Record<string, number>>;
+    themeTotals?: Record<string, Record<string, number>>;
 };
 
 // ==========================================
@@ -78,18 +79,40 @@ export class HRPlanView extends TextFileView {
     }
 
     saveData(frontmatter: HRPlanFrontmatter, data: any[], meta: Papa.ParseMeta) {
-        // 保存時に totals を計算してセット
-        frontmatter.totals = frontmatter.totals || {};
-        frontmatter.totals.results = {};
+        // 既存の totals があれば削除
+        const objFm = frontmatter as any;
+        if (objFm.totals !== undefined) delete objFm.totals;
 
-        frontmatter.months.forEach(month => {
-            let sum = 0;
-            data.forEach((row: any) => {
-                const val = parseFloat(row[month]);
-                if (!isNaN(val)) { sum += val; }
+        const memberTotals: Record<string, Record<string, number>> = {};
+        const themeTotals: Record<string, Record<string, number>> = {};
+
+        // メンバーごと、テーマごとの各月の小計を計算して保存する
+        frontmatter.members.forEach(m => {
+            memberTotals[m.name] = {};
+            frontmatter.months.forEach(month => {
+                let sum = 0;
+                data.filter((row: any) => row["Member"] === m.name).forEach((row: any) => {
+                    const val = parseFloat(row[month]);
+                    if (!isNaN(val)) sum += val;
+                });
+                memberTotals[m.name]![month] = Number(math.format(sum, { precision: 14 }));
             });
-            frontmatter.totals.results[month] = Number(math.format(sum, { precision: 14 }));
         });
+
+        frontmatter.themes.forEach(t => {
+            themeTotals[t.name] = {};
+            frontmatter.months.forEach(month => {
+                let sum = 0;
+                data.filter((row: any) => row["Theme"] === t.name).forEach((row: any) => {
+                    const val = parseFloat(row[month]);
+                    if (!isNaN(val)) sum += val;
+                });
+                themeTotals[t.name]![month] = Number(math.format(sum, { precision: 14 }));
+            });
+        });
+
+        frontmatter.memberTotals = memberTotals;
+        frontmatter.themeTotals = themeTotals;
 
         const yamlStr = stringifyYaml(frontmatter);
         const fields = meta.fields || [];
@@ -361,9 +384,6 @@ export class HRPlanView extends TextFileView {
         const primaryList = primaryKey === 'member' ? fm.members : fm.themes;
         const secondaryList = secondaryKey === 'member' ? fm.members : fm.themes;
 
-        let grandTotals: Record<string, number> = {};
-        months.forEach(m => grandTotals[m] = 0);
-
         primaryList.forEach(pItem => {
             const pName = pItem.name;
             let subTotals: Record<string, number> = {};
@@ -432,7 +452,6 @@ export class HRPlanView extends TextFileView {
             let subRowSum = 0;
             months.forEach(month => {
                 const sTotal = subTotals[month] || 0;
-                grandTotals[month] = (grandTotals[month] || 0) + sTotal;
                 subRowSum += sTotal;
 
                 const td = trSub.createEl('td', { text: sTotal === 0 ? '' : Number(math.format(sTotal, { precision: 14 })).toString() });
@@ -456,38 +475,5 @@ export class HRPlanView extends TextFileView {
             tdSubTotal.style.fontWeight = "bold";
             tdSubTotal.style.background = "var(--background-secondary)";
         });
-
-        // 総合計行
-        const tfoot = table.createEl('tfoot');
-        const trGrand = tfoot.createEl('tr');
-        const tdGrand1 = trGrand.createEl('td', { text: '' });
-        const tdGrand2 = trGrand.createEl('td', { text: '合計' });
-        [tdGrand1, tdGrand2].forEach(td => {
-            td.style.border = "1px solid var(--background-modifier-border)";
-            td.style.padding = "8px";
-            td.style.fontWeight = "bold";
-            td.style.background = "var(--background-modifier-error)";
-            td.style.color = "white";
-        });
-
-        let grandRowSum = 0;
-        months.forEach(month => {
-            const gTotal = grandTotals[month] || 0;
-            grandRowSum += gTotal;
-            const td = trGrand.createEl('td', { text: gTotal === 0 ? '' : Number(math.format(gTotal, { precision: 14 })).toString() });
-            td.style.border = "1px solid var(--background-modifier-border)";
-            td.style.padding = "8px";
-            td.style.textAlign = "right";
-            td.style.fontWeight = "bold";
-            td.style.background = "var(--background-modifier-error)";
-            td.style.color = "white";
-        });
-        const tdGrandTotal = trGrand.createEl('td', { text: grandRowSum === 0 ? '' : Number(math.format(grandRowSum, { precision: 14 })).toString() });
-        tdGrandTotal.style.border = "1px solid var(--background-modifier-border)";
-        tdGrandTotal.style.padding = "8px";
-        tdGrandTotal.style.textAlign = "right";
-        tdGrandTotal.style.fontWeight = "bold";
-        tdGrandTotal.style.background = "var(--background-modifier-error)";
-        tdGrandTotal.style.color = "white";
     }
 }
