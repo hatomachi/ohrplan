@@ -23,6 +23,8 @@ type HRPlanFrontmatter = {
 export class HRPlanView extends TextFileView {
     data: string = "";
     private activeTab: 'member_to_theme' | 'theme_to_member' | 'master' | 'source' = 'member_to_theme';
+    private collapsedRows: Set<string> = new Set();
+    private isMonthsCollapsed: boolean = false;
 
     constructor(leaf: WorkspaceLeaf) {
         super(leaf);
@@ -352,6 +354,33 @@ export class HRPlanView extends TextFileView {
         const fm = parsed.frontmatter as HRPlanFrontmatter;
         const months = fm.months;
 
+        // 全体操作ボタン群
+        const toolbarDiv = container.createDiv();
+        toolbarDiv.style.display = "flex";
+        toolbarDiv.style.gap = "8px";
+        toolbarDiv.style.marginBottom = "10px";
+
+        const primaryList = primaryKey === 'member' ? fm.members : fm.themes;
+        const secondaryList = secondaryKey === 'member' ? fm.members : fm.themes;
+
+        const expandAllBtn = toolbarDiv.createEl('button', { text: 'すべて展開(行)' });
+        expandAllBtn.onclick = () => {
+            this.collapsedRows.clear();
+            this.renderUI();
+        };
+
+        const collapseAllBtn = toolbarDiv.createEl('button', { text: 'すべて折りたたみ(行)' });
+        collapseAllBtn.onclick = () => {
+            primaryList.forEach(p => this.collapsedRows.add(p.name));
+            this.renderUI();
+        };
+
+        const toggleMonthsBtn = toolbarDiv.createEl('button', { text: this.isMonthsCollapsed ? '期間を展開(列)' : '期間を折りたたみ(列)' });
+        toggleMonthsBtn.onclick = () => {
+            this.isMonthsCollapsed = !this.isMonthsCollapsed;
+            this.renderUI();
+        };
+
         const table = container.createEl('table');
         table.style.width = "100%";
         table.style.borderCollapse = "collapse";
@@ -367,12 +396,14 @@ export class HRPlanView extends TextFileView {
             th.style.padding = "8px";
         });
 
-        months.forEach(m => {
-            const th = trHead.createEl('th', { text: m });
-            th.style.border = "1px solid var(--background-modifier-border)";
-            th.style.background = "var(--background-secondary)";
-            th.style.padding = "8px";
-        });
+        if (!this.isMonthsCollapsed) {
+            months.forEach(m => {
+                const th = trHead.createEl('th', { text: m });
+                th.style.border = "1px solid var(--background-modifier-border)";
+                th.style.background = "var(--background-secondary)";
+                th.style.padding = "8px";
+            });
+        }
 
         const thTotal = trHead.createEl('th', { text: '合計' });
         thTotal.style.border = "1px solid var(--background-modifier-border)";
@@ -381,24 +412,57 @@ export class HRPlanView extends TextFileView {
 
         const tbody = table.createEl('tbody');
 
-        const primaryList = primaryKey === 'member' ? fm.members : fm.themes;
-        const secondaryList = secondaryKey === 'member' ? fm.members : fm.themes;
-
         primaryList.forEach(pItem => {
             const pName = pItem.name;
+            const isRowCollapsed = this.collapsedRows.has(pName);
             let subTotals: Record<string, number> = {};
             months.forEach(m => subTotals[m] = 0);
+
+            // 小計行 (常に表示)
+            const trSub = tbody.createEl('tr');
+
+            // 折りたたみトグルボタン配置用のセル
+            const tdSub1 = trSub.createEl('td');
+            tdSub1.style.border = "1px solid var(--background-modifier-border)";
+            tdSub1.style.padding = "4px 8px";
+            tdSub1.style.fontWeight = "bold";
+            tdSub1.style.background = "var(--background-secondary)";
+            tdSub1.style.cursor = "pointer";
+
+            const toggleIcon = isRowCollapsed ? '▶ ' : '▼ ';
+            tdSub1.innerText = toggleIcon + pName;
+            tdSub1.onclick = () => {
+                if (isRowCollapsed) {
+                    this.collapsedRows.delete(pName);
+                } else {
+                    this.collapsedRows.add(pName);
+                }
+                this.renderUI();
+            };
+
+            const tdSub2 = trSub.createEl('td', { text: '小計' });
+            tdSub2.style.border = "1px solid var(--background-modifier-border)";
+            tdSub2.style.padding = "4px 8px";
+            tdSub2.style.fontWeight = "bold";
+            tdSub2.style.background = "var(--background-secondary)";
+
+            let subRowSum = 0;
+            // 明細行の計算と描画（展開されている場合のみDOMに追加）
+            const detailRows: HTMLTableRowElement[] = [];
 
             secondaryList.forEach((sItem, sIndex) => {
                 const sName = sItem.name;
                 const mName = primaryKey === 'member' ? pName : sName;
                 const tName = primaryKey === 'theme' ? pName : sName;
 
-                // dataから値を取得
                 const rowData = parsed.data.find((r: any) => r["Member"] === mName && r["Theme"] === tName) || {};
 
-                const tr = tbody.createEl('tr');
-                const tdPri = tr.createEl('td', { text: sIndex === 0 ? pName : '' });
+                const tr = document.createElement('tr');
+                if (!isRowCollapsed) {
+                    tbody.appendChild(tr);
+                }
+
+                const tdPri = tr.createEl('td', { text: '' }); // 小計行で名前を出しているのでここは空でOK
                 const tdSec = tr.createEl('td', { text: sName });
                 [tdPri, tdSec].forEach(td => {
                     td.style.border = "1px solid var(--background-modifier-border)";
@@ -411,22 +475,24 @@ export class HRPlanView extends TextFileView {
                     subTotals[month] = (subTotals[month] || 0) + val;
                     rowSum += val;
 
-                    const td = tr.createEl('td', { text: val === 0 ? '' : Number(math.format(val, { precision: 14 })).toString() });
-                    td.style.border = "1px solid var(--background-modifier-border)";
-                    td.style.padding = "4px 8px";
-                    td.style.textAlign = "right";
-                    td.style.cursor = "text";
-                    td.setAttribute('contenteditable', 'true');
-                    td.onblur = (e) => {
-                        const newVal = (e.target as HTMLElement).innerText.trim();
-                        this.updateCellValue(fm, parsed.data, parsed.meta, mName, tName, month, newVal);
-                    };
-                    td.onkeydown = (e) => {
-                        if (e.key === 'Enter') {
-                            e.preventDefault();
-                            (e.target as HTMLElement).blur();
-                        }
-                    };
+                    if (!this.isMonthsCollapsed) {
+                        const td = tr.createEl('td', { text: val === 0 ? '' : Number(math.format(val, { precision: 14 })).toString() });
+                        td.style.border = "1px solid var(--background-modifier-border)";
+                        td.style.padding = "4px 8px";
+                        td.style.textAlign = "right";
+                        td.style.cursor = "text";
+                        td.setAttribute('contenteditable', 'true');
+                        td.onblur = (e) => {
+                            const newVal = (e.target as HTMLElement).innerText.trim();
+                            this.updateCellValue(fm, parsed.data, parsed.meta, mName, tName, month, newVal);
+                        };
+                        td.onkeydown = (e) => {
+                            if (e.key === 'Enter') {
+                                e.preventDefault();
+                                (e.target as HTMLElement).blur();
+                            }
+                        };
+                    }
                 });
 
                 // 行合計
@@ -438,34 +504,24 @@ export class HRPlanView extends TextFileView {
                 tdRowTotal.style.background = "var(--background-primary-alt)";
             });
 
-            // 小計行
-            const trSub = tbody.createEl('tr');
-            const tdSub1 = trSub.createEl('td', { text: '' });
-            const tdSub2 = trSub.createEl('td', { text: '小計' });
-            [tdSub1, tdSub2].forEach(td => {
-                td.style.border = "1px solid var(--background-modifier-border)";
-                td.style.padding = "4px 8px";
-                td.style.fontWeight = "bold";
-                td.style.background = "var(--background-secondary)";
-            });
-
-            let subRowSum = 0;
+            // 小計行の右側(月ごとの小計＋行合計)を描画する
             months.forEach(month => {
                 const sTotal = subTotals[month] || 0;
                 subRowSum += sTotal;
 
-                const td = trSub.createEl('td', { text: sTotal === 0 ? '' : Number(math.format(sTotal, { precision: 14 })).toString() });
-                td.style.border = "1px solid var(--background-modifier-border)";
-                td.style.padding = "4px 8px";
-                td.style.textAlign = "right";
-                td.style.fontWeight = "bold";
-                td.style.background = "var(--background-secondary)";
+                if (!this.isMonthsCollapsed) {
+                    const td = trSub.createEl('td', { text: sTotal === 0 ? '' : Number(math.format(sTotal, { precision: 14 })).toString() });
+                    td.style.border = "1px solid var(--background-modifier-border)";
+                    td.style.padding = "4px 8px";
+                    td.style.textAlign = "right";
+                    td.style.fontWeight = "bold";
+                    td.style.background = "var(--background-secondary)";
 
-                // 1.0 (MM) を超えている場合のハイライト (メンバ別の小計の場合のみ)
-                if (primaryKey === 'member' && sTotal > 1.0) {
-                    td.style.color = "var(--text-error)";
-                } else if (primaryKey === 'member' && sTotal < 0.5 && sTotal !== 0) {
-                    td.style.color = "var(--text-accent)"; // 暇な場合など
+                    if (primaryKey === 'member' && sTotal > 1.0) {
+                        td.style.color = "var(--text-error)";
+                    } else if (primaryKey === 'member' && sTotal < 0.5 && sTotal !== 0) {
+                        td.style.color = "var(--text-accent)";
+                    }
                 }
             });
             const tdSubTotal = trSub.createEl('td', { text: subRowSum === 0 ? '' : Number(math.format(subRowSum, { precision: 14 })).toString() });
