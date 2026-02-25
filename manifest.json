@@ -1,9 +1,9 @@
 {
-	"id": "mycalc-plugin",
-	"name": "MyCalc Spreadsheet",
+	"id": "workforcecalc-plugin",
+	"name": "WorkforceCalc Spreadsheet",
 	"version": "1.0.0",
 	"minAppVersion": "1.15.0",
-	"description": ".mycalcファイルを独自のスプレッドシートビューで開くプラグインです。",
+	"description": ".hrplanファイルを独自のスプレッドシートビューで開くプラグインです。",
 	"author": "Sota Ikari",
 	"authorUrl": "",
 	"isDesktopOnly": false

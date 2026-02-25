@@ -1,90 +1,100 @@
-# Obsidian Sample Plugin
+# OCalc Spreadsheet for Obsidian
 
-This is a sample plugin for Obsidian (https://obsidian.md).
+[![Obsidian Downloads](https://img.shields.io/badge/dynamic/json?logo=obsidian&color=71368a&label=downloads&query=%24%5B%22ocalc-spreadsheet%22%5D.downloads&url=https%3A%2F%2Fraw.githubusercontent.com%2Fobsidianmd%2Fobsidian-releases%2Fmaster%2Fcommunity-plugin-stats.json)](https://obsidian.md/plugins?id=ocalc-spreadsheet)
 
-This project uses TypeScript to provide type checking and documentation.
-The repo depends on the latest plugin API (obsidian.d.ts) in TypeScript Definition format, which contains TSDoc comments describing what it does.
+OCalc (Obsidian Calc) is a lightweight, text-based spreadsheet plugin for Obsidian.
+It preserves the "plain-text portability" philosophy of Obsidian by using a hybrid `.ocalc` format (YAML Frontmatter + CSV), while providing an intuitive, Excel-like editing experience and LLM-friendly data structure.
 
-This sample plugin demonstrates some of the basic functionality the plugin API can do.
-- Adds a ribbon icon, which shows a Notice when clicked.
-- Adds a command "Open modal (simple)" which opens a Modal.
-- Adds a plugin setting tab to the settings page.
-- Registers a global click event and output 'click' to the console.
-- Registers a global interval which logs 'setInterval' to the console.
+*(日本語の説明は下部にあります / Japanese description is available below)*
 
-## First time developing plugins?
+---
 
-Quick starting guide for new plugin devs:
+## ✨ Features
 
-- Check if [someone already developed a plugin for what you want](https://obsidian.md/plugins)! There might be an existing plugin similar enough that you can partner up with.
-- Make a copy of this repo as a template with the "Use this template" button (login to GitHub if you don't see it).
-- Clone your repo to a local development folder. For convenience, you can place this folder in your `.obsidian/plugins/your-plugin-name` folder.
-- Install NodeJS, then run `npm i` in the command line under your repo folder.
-- Run `npm run dev` to compile your plugin from `main.ts` to `main.js`.
-- Make changes to `main.ts` (or create new `.ts` files). Those changes should be automatically compiled into `main.js`.
-- Reload Obsidian to load the new version of your plugin.
-- Enable plugin in settings window.
-- For updates to the Obsidian API run `npm update` in the command line under your repo folder.
+* **Excel-like Editing & Drag-and-Drop**: 
+  Click to edit cells seamlessly. Reorder rows and columns intuitively using drag-and-drop.
+* **Formula Engine**: 
+  Define formulas using variables like `{Price} * {Qty}`. Powered by `mathjs`, supporting advanced functions like `round()`.
+* **Smart Totals (LLM-Friendly)**: 
+  Toggle total rows with a single click. Calculated results are strictly saved in the YAML Frontmatter (not in the CSV body), preventing LLM hallucinations and making it highly parsing-friendly for external scripts.
+* **Source View Toggle**: 
+  Click the `</>` icon to instantly switch between the spreadsheet UI and the underlying plain-text source (YAML+CSV).
+* **Beautiful Embedding**: 
+  Embed your `.ocalc` tables into any standard Markdown note using code blocks.
+* **i18n Support**: 
+  Automatically switches between English and Japanese based on your Obsidian language settings.
 
-## Releasing new releases
+## 🚀 Quick Start
 
-- Update your `manifest.json` with your new version number, such as `1.0.1`, and the minimum Obsidian version required for your latest release.
-- Update your `versions.json` file with `"new-plugin-version": "minimum-obsidian-version"` so older versions of Obsidian can download an older version of your plugin that's compatible.
-- Create new GitHub release using your new version number as the "Tag version". Use the exact version number, don't include a prefix `v`. See here for an example: https://github.com/obsidianmd/obsidian-sample-plugin/releases
-- Upload the files `manifest.json`, `main.js`, `styles.css` as binary attachments. Note: The manifest.json file must be in two places, first the root path of your repository and also in the release.
-- Publish the release.
+1. Open the Command Palette (`Ctrl+P` / `Cmd+P`).
+2. Run **"Create new calc table (.ocalc)"**.
+3. Right-click column headers to rename them or set formulas.
+4. Drag row/column handles to reorganize your table.
 
-> You can simplify the version bump process by running `npm version patch`, `npm version minor` or `npm version major` after updating `minAppVersion` manually in `manifest.json`.
-> The command will bump version in `manifest.json` and `package.json`, and add the entry for the new version to `versions.json`
+### How to Embed
+To display a read-only, beautifully rendered table in your normal markdown notes, use the following code block:
 
-## Adding your plugin to the community plugin list
+\`\`\`ocalc
+Untitled.ocalc
+\`\`\`
 
-- Check the [plugin guidelines](https://docs.obsidian.md/Plugins/Releasing/Plugin+guidelines).
-- Publish an initial version.
-- Make sure you have a `README.md` file in the root of your repo.
-- Make a pull request at https://github.com/obsidianmd/obsidian-releases to add your plugin.
+## 📂 The `.ocalc` Format (Example)
+OCalc stores data in a clean, version-control-friendly format. The calculation logic and total results are in the Frontmatter, while the pure data remains in the CSV body.
 
-## How to use
+```yaml
+---
+formulas:
+  Cost(USD): "{Price} * {Qty} * {Hours}"
+totals:
+  showTotalRow: true
+  targetColumns:
+    - Cost(USD)
+  results:
+    Cost(USD): 113.32
+---
+Service,Price,Unit,Qty,Hours,Cost(USD)
+EC2(t3.micro),0.0136,USD/hr,150,8,16.32
+EBS,0.096,USD/GB-mo,200,4,76.8
+RDS,0.026,USD/hr,200,1,5.2
+S3,0.025,USD/GB-mo,300,2,15
 
-- Clone this repo.
-- Make sure your NodeJS is at least v16 (`node --version`).
-- `npm i` or `yarn` to install dependencies.
-- `npm run dev` to start compilation in watch mode.
-
-## Manually installing the plugin
-
-- Copy over `main.js`, `styles.css`, `manifest.json` to your vault `VaultFolder/.obsidian/plugins/your-plugin-id/`.
-
-## Improve code quality with eslint
-- [ESLint](https://eslint.org/) is a tool that analyzes your code to quickly find problems. You can run ESLint against your plugin to find common bugs and ways to improve your code. 
-- This project already has eslint preconfigured, you can invoke a check by running`npm run lint`
-- Together with a custom eslint [plugin](https://github.com/obsidianmd/eslint-plugin) for Obsidan specific code guidelines.
-- A GitHub action is preconfigured to automatically lint every commit on all branches.
-
-## Funding URL
-
-You can include funding URLs where people who use your plugin can financially support it.
-
-The simple way is to set the `fundingUrl` field to your link in your `manifest.json` file:
-
-```json
-{
-    "fundingUrl": "https://buymeacoffee.com"
-}
 ```
 
-If you have multiple URLs, you can also do:
+---
 
-```json
-{
-    "fundingUrl": {
-        "Buy Me a Coffee": "https://buymeacoffee.com",
-        "GitHub Sponsor": "https://github.com/sponsors",
-        "Patreon": "https://www.patreon.com/"
-    }
-}
+# OCalc Spreadsheet (日本語)
+
+OCalc（Obsidian Calc）は、Obsidian内で直感的な表計算を実現する軽量プラグインです。
+「プレーンテキストのポータビリティ」というObsidianの思想を守るため、独自バイナリではなく `.ocalc` というハイブリッド拡張子（YAML + CSV）を採用しています。エクセルライクな操作感と、AI（LLM）からの読み書きのしやすさを両立しています。
+
+## ✨ 主な機能
+
+* **シームレスな編集とドラッグ＆ドロップ**:
+セルをクリックして直接編集。行のハンドルや列ヘッダーをドラッグ＆ドロップするだけで、直感的に行列の入れ替えが可能です。
+* **強力な数式エンジン**:
+`{単価} * {数量}` のように列名を変数とした数式を設定できます。`mathjs` を搭載しており、`round()` などの関数にも対応。
+* **スマートな合計行（AIフレンドリー設計）**:
+ワンクリックで合計行のON/OFFが可能。合計の計算結果はCSV本体ではなく「YAML Frontmatter」に分離して保存されるため、LLMや外部スクリプトが誤読しにくい堅牢な構造になっています。
+* **ソースビュー切替**:
+タブ右上の `</>` アイコンをクリックすると、スプレッドシート画面と、裏側のプレーンテキスト（YAML+CSV）画面を瞬時に切り替えられます。
+* **ノートへの美しい埋め込み**:
+Markdownのコードブロック記法を使って、他のノートに計算表を美しく埋め込み表示できます。
+
+## 🚀 使い方
+
+1. コマンドパレット（`Ctrl+P` または `Cmd+P`）を開きます。
+2. **「新しい計算表 (.ocalc) を作成」** を実行します。
+3. 列のヘッダーを右クリックして、列名の変更や計算式の設定を行います。
+4. 行の左端や列ヘッダーをドラッグして、自由に表を並び替えます。
+
+### 他のノートへの埋め込み方法
+
+任意のMarkdownノートに以下のコードブロックを記述すると、計算結果を含む表がプレビュー表示されます。
+
+```ocalc
+ファイル名.ocalc
 ```
 
-## API Documentation
+## 🛠 インストール方法
 
-See https://docs.obsidian.md
+*(コミュニティプラグインへの登録が完了次第、ここにインストール手順を記載します)*

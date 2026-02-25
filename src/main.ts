@@ -1,34 +1,31 @@
 import { Plugin, WorkspaceLeaf, TFile, parseYaml } from 'obsidian';
-import { MyCalcView, VIEW_TYPE_OCALC, t } from './MyCalcView';
+import { HRPlanView, VIEW_TYPE_HRPLAN, t } from './MyCalcView';
 import * as Papa from 'papaparse';
 import * as math from 'mathjs';
 
-export default class MyCalcPlugin extends Plugin {
+export default class HRPlanPlugin extends Plugin {
 	async onload() {
 		this.registerView(
-			VIEW_TYPE_OCALC,
-			(leaf: WorkspaceLeaf) => new MyCalcView(leaf)
+			VIEW_TYPE_HRPLAN,
+			(leaf: WorkspaceLeaf) => new HRPlanView(leaf)
 		);
-		// ★修正: 拡張子を .ocalc に変更
-		this.registerExtensions(['ocalc'], VIEW_TYPE_OCALC);
+		this.registerExtensions(['hrplan'], VIEW_TYPE_HRPLAN);
 
 		this.addCommand({
-			id: 'create-ocalc-file',
-			// ★言語設定に応じたメニュー名
-			name: t('new_col_name') === "新しい列名" ? "新しい計算表 (.ocalc) を作成" : "Create new calc table (.ocalc)",
+			id: 'create-hrplan-file',
+			name: "新しい要員計画 (.hrplan) を作成",
 			callback: async () => {
-				await this.createNewMyCalcFile();
+				await this.createNewHRPlanFile();
 			}
 		});
 
-		// ★修正: コードブロックの識別子を ocalc に変更
-		this.registerMarkdownCodeBlockProcessor('ocalc', async (source, el, ctx) => {
+		this.registerMarkdownCodeBlockProcessor('hrplan', async (source, el, ctx) => {
 			const fileName = source.trim();
 			if (!fileName) return;
 
 			const file = this.app.metadataCache.getFirstLinkpathDest(fileName, ctx.sourcePath);
 
-			if (file instanceof TFile && file.extension === 'ocalc') {
+			if (file instanceof TFile && file.extension === 'hrplan') {
 				const data = await this.app.vault.cachedRead(file);
 				this.renderEmbed(el, data, file.basename);
 			} else {
@@ -42,21 +39,45 @@ export default class MyCalcPlugin extends Plugin {
 		});
 	}
 
-	async createNewMyCalcFile() {
-		let fileName = 'Untitled.ocalc';
+	async createNewHRPlanFile() {
+		let fileName = 'Untitled.hrplan';
 		let fileNumber = 1;
 		while (this.app.vault.getAbstractFileByPath(fileName)) {
-			fileName = `Untitled ${fileNumber}.ocalc`;
+			fileName = `Untitled ${fileNumber}.hrplan`;
 			fileNumber++;
 		}
-
 		const initialData = `---
-formulas: {}
-totals:
-  showTotalRow: true
-  targetColumns: []
+period: "2026/4-2027/3"
+months:
+  - "2026/4"
+  - "2026/5"
+  - "2026/6"
+  - "2026/7"
+  - "2026/8"
+  - "2026/9"
+  - "2026/10"
+  - "2026/11"
+  - "2026/12"
+  - "2027/1"
+  - "2027/2"
+  - "2027/3"
+themes:
+  - name: "AEOシステム EKS verup対応"
+    description: "サンプルテーマ"
+  - name: "BCQシステム 新規構築"
+    description: "サンプルテーマ2"
+members:
+  - name: "田中"
+    description: "リーダー"
+    price: 3000
+  - name: "山田"
+    description: "メンバー"
+    price: 2000
+totals: {}
 ---
-Column1
+"Member","Theme","2026/4","2026/5","2026/6","2026/7","2026/8","2026/9","2026/10","2026/11","2026/12","2027/1","2027/2","2027/3"
+"田中","AEOシステム EKS verup対応",0.20,0.20,0,0,0,0,0,0,0,0,0,0
+"田中","BCQシステム 新規構築",0.10,0.10,0,0,0,0,0,0,0,0,0,0
 `;
 		try {
 			const file = await this.app.vault.create(fileName, initialData);
@@ -68,79 +89,12 @@ Column1
 	}
 
 	renderEmbed(container: HTMLElement, rawData: string, titleStr: string) {
-		let yamlStr = ""; let csvStr = rawData; let frontmatter: any = {};
-		if (rawData.startsWith("---\n")) {
-			const endIdx = rawData.indexOf("\n---\n", 4);
-			if (endIdx !== -1) {
-				yamlStr = rawData.substring(4, endIdx);
-				csvStr = rawData.substring(endIdx + 5).replace(/^[\r\n]+/, '');
-				try { frontmatter = parseYaml(yamlStr); } catch (e) { }
-			}
-		}
-
-		const parsedCsv = Papa.parse(csvStr, { header: true, skipEmptyLines: false });
-		if (!parsedCsv.meta.fields || parsedCsv.meta.fields.length === 0) parsedCsv.meta.fields = ["Column1"];
-		if (!parsedCsv.data || parsedCsv.data.length === 0) {
-			const emptyRow: any = {}; parsedCsv.meta.fields.forEach((f: string) => emptyRow[f] = "");
-			parsedCsv.data = [emptyRow];
-		}
-
-		const data = parsedCsv.data;
-		const fields = parsedCsv.meta.fields;
-
-		const wrapper = container.createDiv();
-		wrapper.style.border = "1px solid var(--background-modifier-border)";
-		wrapper.style.borderRadius = "8px";
-		wrapper.style.padding = "16px";
-		wrapper.style.backgroundColor = "var(--background-primary)";
-		wrapper.style.overflowX = "auto";
-		wrapper.style.margin = "1em 0";
-
-		const title = wrapper.createEl('h4', { text: `📊 ${titleStr}` });
+		// HRPlan の埋め込みビュー (簡易版)
+		const title = container.createEl('h4', { text: `📊 ${titleStr}` });
 		title.style.marginTop = "0";
 		title.style.marginBottom = "12px";
 		title.style.color = "var(--text-normal)";
-
-		const table = wrapper.createEl('table');
-		table.style.width = "100%"; table.style.borderCollapse = "collapse";
-
-		const thead = table.createEl('thead');
-		const trHead = thead.createEl('tr');
-		fields.forEach((field: string) => {
-			const th = trHead.createEl('th', { text: field });
-			th.style.border = "1px solid var(--background-modifier-border)"; th.style.padding = "8px"; th.style.background = "var(--background-secondary)"; th.style.fontWeight = "bold";
-			if (frontmatter.formulas && frontmatter.formulas[field]) { th.innerText += " (fx)"; th.style.color = "var(--text-accent)"; }
-		});
-
-		const tbody = table.createEl('tbody');
-		data.forEach((row: any) => {
-			const tr = tbody.createEl('tr');
-			fields.forEach((field: string) => {
-				const td = tr.createEl('td', { text: String(row[field] || "") });
-				td.style.border = "1px solid var(--background-modifier-border)"; td.style.padding = "8px";
-				if (frontmatter.formulas && frontmatter.formulas[field]) { td.style.background = "var(--background-primary-alt)"; td.style.color = "var(--text-muted)"; }
-			});
-		});
-
-		if (frontmatter.totals?.showTotalRow !== false) {
-			const tfoot = table.createEl('tfoot'); const trFoot = tfoot.createEl('tr');
-			trFoot.style.fontWeight = "bold"; trFoot.style.background = "var(--background-secondary)";
-			let targetCols = frontmatter.totals?.targetColumns; if (!targetCols) targetCols = [...fields];
-
-			fields.forEach((field: string, index: number) => {
-				const tdFoot = trFoot.createEl('td'); tdFoot.style.border = "1px solid var(--background-modifier-border)"; tdFoot.style.padding = "8px";
-
-				// ★修正: i18nの翻訳を利用
-				if (index === 0) { tdFoot.innerText = t('total'); }
-				else if (targetCols.includes(field)) {
-					const resultVal = frontmatter.totals?.results?.[field];
-					if (resultVal !== undefined) {
-						tdFoot.innerText = String(resultVal);
-					} else {
-						tdFoot.innerText = "";
-					}
-				} else { tdFoot.innerText = "-"; tdFoot.style.color = "var(--text-muted)"; tdFoot.style.textAlign = "center"; }
-			});
-		}
+		const desc = container.createEl('p', { text: "埋め込み表示は未実装です。プラグインで.hrplanドキュメント自体を開いて確認してください。" });
+		desc.style.color = "var(--text-muted)";
 	}
 }
