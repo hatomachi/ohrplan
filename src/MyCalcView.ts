@@ -25,6 +25,7 @@ export class HRPlanView extends TextFileView {
     private activeTab: 'member_to_theme' | 'theme_to_member' | 'master' | 'source' = 'member_to_theme';
     private collapsedRows: Set<string> = new Set();
     private isMonthsCollapsed: boolean = false;
+    private isCostMode: boolean = false;
 
     constructor(leaf: WorkspaceLeaf) {
         super(leaf);
@@ -381,6 +382,14 @@ export class HRPlanView extends TextFileView {
             this.renderUI();
         };
 
+        if (primaryKey === 'theme') {
+            const toggleCostBtn = toolbarDiv.createEl('button', { text: this.isCostMode ? '表示を工数(MM)に戻す' : '費用モードで表示' });
+            toggleCostBtn.onclick = () => {
+                this.isCostMode = !this.isCostMode;
+                this.renderUI();
+            };
+        }
+
         const table = container.createEl('table');
         table.style.width = "100%";
         table.style.borderCollapse = "collapse";
@@ -472,31 +481,50 @@ export class HRPlanView extends TextFileView {
                 let rowSum = 0;
                 months.forEach(month => {
                     const val = parseFloat(rowData[month]) || 0;
-                    subTotals[month] = (subTotals[month] || 0) + val;
-                    rowSum += val;
+
+                    let cellVal = val;
+                    const isCostActivated = this.isCostMode && primaryKey === 'theme';
+                    if (isCostActivated) {
+                        const memberPrice = Number(fm.members.find(m => m.name === mName)?.price) || 0;
+                        cellVal = val * memberPrice;
+                    }
+
+                    subTotals[month] = (subTotals[month] || 0) + cellVal;
+                    rowSum += cellVal;
 
                     if (!this.isMonthsCollapsed) {
-                        const td = tr.createEl('td', { text: val === 0 ? '' : Number(math.format(val, { precision: 14 })).toString() });
+                        const formattedVal = Number(math.format(cellVal, { precision: 14 }));
+                        const displayStr = cellVal === 0 ? '' : (isCostActivated ? formattedVal.toLocaleString() : formattedVal.toString());
+                        const td = tr.createEl('td', { text: displayStr });
                         td.style.border = "1px solid var(--background-modifier-border)";
                         td.style.padding = "4px 8px";
                         td.style.textAlign = "right";
-                        td.style.cursor = "text";
-                        td.setAttribute('contenteditable', 'true');
-                        td.onblur = (e) => {
-                            const newVal = (e.target as HTMLElement).innerText.trim();
-                            this.updateCellValue(fm, parsed.data, parsed.meta, mName, tName, month, newVal);
-                        };
-                        td.onkeydown = (e) => {
-                            if (e.key === 'Enter') {
-                                e.preventDefault();
-                                (e.target as HTMLElement).blur();
-                            }
-                        };
+
+                        if (isCostActivated) {
+                            td.style.cursor = "default";
+                            td.style.backgroundColor = "var(--background-primary-alt)";
+                        } else {
+                            td.style.cursor = "text";
+                            td.setAttribute('contenteditable', 'true');
+                            td.onblur = (e) => {
+                                const newVal = (e.target as HTMLElement).innerText.trim();
+                                this.updateCellValue(fm, parsed.data, parsed.meta, mName, tName, month, newVal);
+                            };
+                            td.onkeydown = (e) => {
+                                if (e.key === 'Enter') {
+                                    e.preventDefault();
+                                    (e.target as HTMLElement).blur();
+                                }
+                            };
+                        }
                     }
                 });
 
                 // 行合計
-                const tdRowTotal = tr.createEl('td', { text: rowSum === 0 ? '' : Number(math.format(rowSum, { precision: 14 })).toString() });
+                const formattedRowSum = Number(math.format(rowSum, { precision: 14 }));
+                const isCostActivated = this.isCostMode && primaryKey === 'theme';
+                const rowSumStr = rowSum === 0 ? '' : (isCostActivated ? formattedRowSum.toLocaleString() : formattedRowSum.toString());
+                const tdRowTotal = tr.createEl('td', { text: rowSumStr });
                 tdRowTotal.style.border = "1px solid var(--background-modifier-border)";
                 tdRowTotal.style.padding = "4px 8px";
                 tdRowTotal.style.textAlign = "right";
@@ -510,7 +538,10 @@ export class HRPlanView extends TextFileView {
                 subRowSum += sTotal;
 
                 if (!this.isMonthsCollapsed) {
-                    const td = trSub.createEl('td', { text: sTotal === 0 ? '' : Number(math.format(sTotal, { precision: 14 })).toString() });
+                    const formattedSub = Number(math.format(sTotal, { precision: 14 }));
+                    const isCostActivated = this.isCostMode && primaryKey === 'theme';
+                    const sTotalStr = sTotal === 0 ? '' : (isCostActivated ? formattedSub.toLocaleString() : formattedSub.toString());
+                    const td = trSub.createEl('td', { text: sTotalStr });
                     td.style.border = "1px solid var(--background-modifier-border)";
                     td.style.padding = "4px 8px";
                     td.style.textAlign = "right";
@@ -524,7 +555,11 @@ export class HRPlanView extends TextFileView {
                     }
                 }
             });
-            const tdSubTotal = trSub.createEl('td', { text: subRowSum === 0 ? '' : Number(math.format(subRowSum, { precision: 14 })).toString() });
+
+            const formattedTotal = Number(math.format(subRowSum, { precision: 14 }));
+            const isCostActivated = this.isCostMode && primaryKey === 'theme';
+            const subRowSumStr = subRowSum === 0 ? '' : (isCostActivated ? formattedTotal.toLocaleString() : formattedTotal.toString());
+            const tdSubTotal = trSub.createEl('td', { text: subRowSumStr });
             tdSubTotal.style.border = "1px solid var(--background-modifier-border)";
             tdSubTotal.style.padding = "4px 8px";
             tdSubTotal.style.textAlign = "right";
