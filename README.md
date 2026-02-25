@@ -1,100 +1,54 @@
-# OCalc Spreadsheet for Obsidian
+# WorkforceCalc (HRPlan) for Obsidian
 
-[![Obsidian Downloads](https://img.shields.io/badge/dynamic/json?logo=obsidian&color=71368a&label=downloads&query=%24%5B%22ocalc-spreadsheet%22%5D.downloads&url=https%3A%2F%2Fraw.githubusercontent.com%2Fobsidianmd%2Fobsidian-releases%2Fmaster%2Fcommunity-plugin-stats.json)](https://obsidian.md/plugins?id=ocalc-spreadsheet)
-
-OCalc (Obsidian Calc) is a lightweight, text-based spreadsheet plugin for Obsidian.
-It preserves the "plain-text portability" philosophy of Obsidian by using a hybrid `.ocalc` format (YAML Frontmatter + CSV), while providing an intuitive, Excel-like editing experience and LLM-friendly data structure.
-
-*(日本語の説明は下部にあります / Japanese description is available below)*
-
----
-
-## ✨ Features
-
-* **Excel-like Editing & Drag-and-Drop**: 
-  Click to edit cells seamlessly. Reorder rows and columns intuitively using drag-and-drop.
-* **Formula Engine**: 
-  Define formulas using variables like `{Price} * {Qty}`. Powered by `mathjs`, supporting advanced functions like `round()`.
-* **Smart Totals (LLM-Friendly)**: 
-  Toggle total rows with a single click. Calculated results are strictly saved in the YAML Frontmatter (not in the CSV body), preventing LLM hallucinations and making it highly parsing-friendly for external scripts.
-* **Source View Toggle**: 
-  Click the `</>` icon to instantly switch between the spreadsheet UI and the underlying plain-text source (YAML+CSV).
-* **Beautiful Embedding**: 
-  Embed your `.ocalc` tables into any standard Markdown note using code blocks.
-* **i18n Support**: 
-  Automatically switches between English and Japanese based on your Obsidian language settings.
-
-## 🚀 Quick Start
-
-1. Open the Command Palette (`Ctrl+P` / `Cmd+P`).
-2. Run **"Create new calc table (.ocalc)"**.
-3. Right-click column headers to rename them or set formulas.
-4. Drag row/column handles to reorganize your table.
-
-### How to Embed
-To display a read-only, beautifully rendered table in your normal markdown notes, use the following code block:
-
-\`\`\`ocalc
-Untitled.ocalc
-\`\`\`
-
-## 📂 The `.ocalc` Format (Example)
-OCalc stores data in a clean, version-control-friendly format. The calculation logic and total results are in the Frontmatter, while the pure data remains in the CSV body.
-
-```yaml
----
-formulas:
-  Cost(USD): "{Price} * {Qty} * {Hours}"
-totals:
-  showTotalRow: true
-  targetColumns:
-    - Cost(USD)
-  results:
-    Cost(USD): 113.32
----
-Service,Price,Unit,Qty,Hours,Cost(USD)
-EC2(t3.micro),0.0136,USD/hr,150,8,16.32
-EBS,0.096,USD/GB-mo,200,4,76.8
-RDS,0.026,USD/hr,200,1,5.2
-S3,0.025,USD/GB-mo,300,2,15
-
-```
-
----
-
-# OCalc Spreadsheet (日本語)
-
-OCalc（Obsidian Calc）は、Obsidian内で直感的な表計算を実現する軽量プラグインです。
-「プレーンテキストのポータビリティ」というObsidianの思想を守るため、独自バイナリではなく `.ocalc` というハイブリッド拡張子（YAML + CSV）を採用しています。エクセルライクな操作感と、AI（LLM）からの読み書きのしやすさを両立しています。
+WorkforceCalc は Obsidian 内で直感的に要員計画（リソース・アロケーション）を管理するためのカスタムプラグインです。
+「プレーンテキストのポータビリティ」という Obsidian の思想を守るため、`.hrplan` というハイブリッド拡張子（YAML Frontmatter + CSV）を採用しています。
+柔軟なUI操作と、AI（LLM）からの読み書きのしやすさを両立した設計になっています。
 
 ## ✨ 主な機能
 
-* **シームレスな編集とドラッグ＆ドロップ**:
-セルをクリックして直接編集。行のハンドルや列ヘッダーをドラッグ＆ドロップするだけで、直感的に行列の入れ替えが可能です。
-* **強力な数式エンジン**:
-`{単価} * {数量}` のように列名を変数とした数式を設定できます。`mathjs` を搭載しており、`round()` などの関数にも対応。
-* **スマートな合計行（AIフレンドリー設計）**:
-ワンクリックで合計行のON/OFFが可能。合計の計算結果はCSV本体ではなく「YAML Frontmatter」に分離して保存されるため、LLMや外部スクリプトが誤読しにくい堅牢な構造になっています。
-* **ソースビュー切替**:
-タブ右上の `</>` アイコンをクリックすると、スプレッドシート画面と、裏側のプレーンテキスト（YAML+CSV）画面を瞬時に切り替えられます。
-* **ノートへの美しい埋め込み**:
-Markdownのコードブロック記法を使って、他のノートに計算表を美しく埋め込み表示できます。
+* **ピボットテーブル形式の直接編集**:
+  「メンバー＞テーマ」「テーマ＞メンバー」の2つのビューを切り替えながら、月別の工数（MMなど）を直接セルに入力・編集できます。
+* **折りたたみ（アコーディオン）UI**:
+  メンバごと、テーマごとの行を折りたたんで小計のみをスッキリと見せることができます。また、「期間(月)」の列をまとめて非表示にし、合計だけを表示する機能も搭載しています。
+* **インラインでのマスタ管理**:
+  「マスタ設定」タブから、メンバやテーマの追加、変更、削除が可能です。名前を変更した場合は、自動的に割り当てデータ（CSV）側も追従して更新されます。
+* **AIフレンドリーなデータ構造 (`.hrplan`)**:
+  計算後の「メンバ別月別小計」や「テーマ別月別小計」は、CSVではなく YAML Frontmatter に自動的に書き出されます。これにより、LLMや別スクリプトがデータを集計・分析しやすくなっています。
+* **ソースビューの直接編集**:
+  UIから `ソース表示` タブに切り替えると、裏側の YAML + CSV データそのものをテキストで直接編集・保存することが可能です。
 
 ## 🚀 使い方
 
 1. コマンドパレット（`Ctrl+P` または `Cmd+P`）を開きます。
-2. **「新しい計算表 (.ocalc) を作成」** を実行します。
-3. 列のヘッダーを右クリックして、列名の変更や計算式の設定を行います。
-4. 行の左端や列ヘッダーをドラッグして、自由に表を並び替えます。
+2. **「新しい要員計画 (.hrplan) を作成」** を実行します。
+3. 作成された表に対して、数値を入力したり、マスタ設定からメンバやテーマを追加して運用します。
 
-### 他のノートへの埋め込み方法
+## 📂 `.hrplan` フォーマットの例
 
-任意のMarkdownノートに以下のコードブロックを記述すると、計算結果を含む表がプレビュー表示されます。
+データはクリーンでバージョン管理しやすい形で保存されます。設定や小計は Frontmatter に、純粋なアロケーションマトリクスは CSV ボディに格納されています。
 
-```ocalc
-ファイル名.ocalc
+```yaml
+---
+period: "2026/4-2027/3"
+months:
+  - 2026/4
+  - 2026/5
+themes:
+  - name: プロジェクトA
+    description: "新規開発"
+members:
+  - name: 開発太郎
+    description: "リーダー"
+    price: 1500
+memberTotals:
+  開発太郎:
+    "2026/4": 0.5
+    "2026/5": 1
+themeTotals:
+  プロジェクトA:
+    "2026/4": 0.5
+    "2026/5": 1
+---
+"Member","Theme","2026/4","2026/5"
+"開発太郎","プロジェクトA",0.5,1
 ```
-
-## 🛠 インストール方法
-
-*(コミュニティプラグインへの登録が完了次第、ここにインストール手順を記載します)*
